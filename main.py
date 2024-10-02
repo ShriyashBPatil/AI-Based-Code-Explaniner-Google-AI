@@ -2,6 +2,8 @@ import google.generativeai as genai
 import tkinter as tk
 from tkinter import scrolledtext, filedialog
 import time
+from docx import Document 
+import threading  
 
 def configure_genai(api_key):
     genai.configure(api_key=api_key)
@@ -18,7 +20,7 @@ def configure_genai(api_key):
     )
     return model
 
-# Directly input the API key
+
 api_key = "AIzaSyA6DZkB7w66xqcUXNCuYiM6f51rTOevOKc"
 model = configure_genai(api_key)
 
@@ -32,54 +34,89 @@ def send_message(message):
 def type_text(widget, text):
     widget.config(state=tk.NORMAL)
     for char in text:
-        widget.insert(tk.END, char)
+        if text.startswith("1. Importing Necessary Libraries:"):
+            widget.insert(tk.END, char, "bold")
+        else:
+            widget.insert(tk.END, char)
         widget.update()
-        widget.see(tk.END)  # Auto-scroll to the end
-        time.sleep(0.01)  # Adjust the delay for typing speed
+        widget.see(tk.END) 
+        time.sleep(0.01)  
     widget.insert(tk.END, "\n")
     widget.config(state=tk.DISABLED)
 
 def on_send():
-    user_message = user_input.get()
-    chat_history.config(state=tk.NORMAL)
-    chat_history.insert(tk.END, "You: ", "bold")
-    chat_history.insert(tk.END, user_message + "\n")
-    chat_history.config(state=tk.DISABLED)
-    user_input.delete(0, tk.END)
+    def send_message_thread():
+        user_message = user_input.get()
+        chat_history.config(state=tk.NORMAL)
+        chat_history.insert(tk.END, "You: ", "bold")
+        chat_history.insert(tk.END, user_message + "\n")
+        chat_history.config(state=tk.DISABLED)
+        user_input.delete(0, tk.END)
+        
+        bot_response = send_message(user_message)
+        chat_history.config(state=tk.NORMAL)
+        chat_history.insert(tk.END, "Bot: ", "bold")
+        chat_history.config(state=tk.DISABLED)
+        type_text(chat_history, bot_response)
+        
+        current_input.config(state=tk.NORMAL)
+        current_input.insert(tk.END, "You: ", "bold")
+        current_input.insert(tk.END, user_message + "\n")
+        current_input.insert(tk.END, "Bot: ", "bold")
+        current_input.insert(tk.END, bot_response + "\n")
+        current_input.config(state=tk.DISABLED)
     
-    bot_response = send_message(user_message)
-    chat_history.config(state=tk.NORMAL)
-    chat_history.insert(tk.END, "Bot: ", "bold")
-    chat_history.config(state=tk.DISABLED)
-    type_text(chat_history, bot_response)
-    
-    # Update current input with the history of messages sent
-    current_input.config(state=tk.NORMAL)
-    current_input.insert(tk.END, "You: ", "bold")
-    current_input.insert(tk.END, user_message + "\n")
-    current_input.insert(tk.END, "Bot: ", "bold")
-    current_input.insert(tk.END, bot_response + "\n")
-    current_input.config(state=tk.DISABLED)
+    threading.Thread(target=send_message_thread).start()
+
+def export_to_docx(content):
+    doc = Document()
+    doc.add_heading('Code Explanation', 0)
+    doc.add_paragraph(content)
+    file_path = filedialog.asksaveasfilename(defaultextension=".docx", filetypes=[("Word Documents", "*.docx")])
+    if file_path:
+        doc.save(file_path)
 
 def open_file():
-    file_path = filedialog.askopenfilename()
-    if file_path:
-        with open(file_path, 'r') as file:
-            file_content = file.read()
-            code_display.config(state=tk.NORMAL)
-            code_display.delete(1.0, tk.END)
-            code_display.insert(tk.END, file_content)
-            code_display.config(state=tk.DISABLED)
-            
-            # Send file content to AI for explanation
-            explanation_request = f"Explain this code in detail:\n{file_content}"
-            bot_response = send_message(explanation_request)
-            chat_history.config(state=tk.NORMAL)
-            chat_history.insert(tk.END, "Bot: ", "bold")
-            chat_history.config(state=tk.DISABLED)
-            type_text(chat_history, bot_response)
+    def open_file_thread():
+        file_path = filedialog.askopenfilename()
+        if file_path:
+            with open(file_path, 'r') as file:
+                file_content = file.read()
+                code_display.config(state=tk.NORMAL)
+                code_display.delete(1.0, tk.END)
+                code_display.insert(tk.END, file_content)
+                code_display.config(state=tk.DISABLED)
+                
+                explanation_request = f"Explain this code in detail:\n{file_content}"
+                bot_response = send_message(explanation_request)
+           
+                chat_history.config(state=tk.NORMAL)
+                chat_history.insert(tk.END, "Code:\n", "bold")
+                chat_history.insert(tk.END, file_content + "\n\n")
+                chat_history.insert(tk.END, "Bot: ", "bold")
+                chat_history.config(state=tk.DISABLED)
+                type_text(chat_history, bot_response)
+              
+                global last_explanation
+                last_explanation = bot_response
 
-# GUI setup
+            update_line_numbers()
+    
+    threading.Thread(target=open_file_thread).start()
+
+def update_line_numbers(event=None):
+    code_content = code_display.get("1.0", "end-1c")
+    lines = code_content.split('\n')
+    line_numbers = "\n".join(str(i + 1) for i in range(len(lines)))
+    line_numbers_display.config(state=tk.NORMAL)
+    line_numbers_display.delete("1.0", tk.END)
+    line_numbers_display.insert("1.0", line_numbers)
+    line_numbers_display.config(state=tk.DISABLED)
+
+def on_scroll(event):
+    code_display.yview_scroll(int(-1*(event.delta/120)), "units")
+    line_numbers_display.yview_scroll(int(-1*(event.delta/120)), "units")
+
 root = tk.Tk()
 root.title("Code Explainer")
 root.geometry("800x600")
@@ -114,8 +151,19 @@ current_input.tag_configure("bold", font=("Helvetica", 10, "bold"))
 
 code_display_label = tk.Label(input_frame, text="Code Display", font=("Helvetica", 12, "bold"), bg="#f0f0f0")
 code_display_label.pack(pady=5)
-code_display = scrolledtext.ScrolledText(input_frame, state='disabled', wrap=tk.WORD, width=50, bg="#ffffff", fg="#000000", font=("Helvetica", 10))
-code_display.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+code_frame = tk.Frame(input_frame)
+code_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+line_numbers_display = tk.Text(code_frame, width=4, state='disabled', wrap=tk.NONE, bg="#f0f0f0", fg="#000000", font=("Helvetica", 10))
+line_numbers_display.pack(side=tk.LEFT, fill=tk.Y)
+
+code_display = scrolledtext.ScrolledText(code_frame, state='disabled', wrap=tk.WORD, width=50, bg="#ffffff", fg="#000000", font=("Helvetica", 10))
+code_display.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+code_display.bind("<KeyRelease>", update_line_numbers)
+code_display.bind("<MouseWheel>", on_scroll)
+line_numbers_display.bind("<MouseWheel>", on_scroll)
 
 user_input_label = tk.Label(input_frame, text="Your Input", font=("Helvetica", 12, "bold"), bg="#f0f0f0")
 user_input_label.pack(pady=5)
@@ -127,5 +175,8 @@ send_button.pack(padx=10, pady=10)
 
 file_button = tk.Button(input_frame, text="Upload File", command=open_file, bg="#2196F3", fg="#ffffff", font=("Helvetica", 10, "bold"))
 file_button.pack(padx=10, pady=10)
+
+export_button = tk.Button(input_frame, text="Export Explanation", command=lambda: export_to_docx(last_explanation), bg="#FF9800", fg="#ffffff", font=("Helvetica", 10, "bold"))
+export_button.pack(padx=10, pady=10)
 
 root.mainloop()
