@@ -21,7 +21,7 @@ def configure_genai(api_key):
     return model
 
 
-api_key = "AIzaSyA6DZkB7w66xqcUXNCuYiM6f51rTOevOKc"
+api_key = "YOUR API KEY HERE"
 model = configure_genai(api_key)
 
 # Add a global variable to store chat history
