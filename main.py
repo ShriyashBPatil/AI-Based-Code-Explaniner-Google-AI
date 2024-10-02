@@ -21,7 +21,7 @@ def configure_genai(api_key):
     return model
 
 
-api_key = "AIzaSyA6DZkB7w66xqcUXNCuYiM6f51rTOevOKc"
+api_key = "YOUR API KEY HERE"
 model = configure_genai(api_key)
 
 def send_message(message): 
@@ -34,7 +34,7 @@ def send_message(message):
 def type_text(widget, text):
     widget.config(state=tk.NORMAL)
     for char in text:
-        if text.startswith("1. Importing Necessary Libraries:"):
+        if text.startswith("**"):
             widget.insert(tk.END, char, "bold")
         else:
             widget.insert(tk.END, char)
