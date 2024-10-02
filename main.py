@@ -21,12 +21,19 @@ def configure_genai(api_key):
     return model
 
 
-api_key = "YOUR API KEY HERE"
+api_key = "AIzaSyA6DZkB7w66xqcUXNCuYiM6f51rTOevOKc"
 model = configure_genai(api_key)
 
-def send_message(message): 
+# Add a global variable to store chat history
+chat_history_list = []
+
+def format_history(history):
+    return [{"parts": [{"text": entry["content"]}], "role": entry["role"]} for entry in history]
+
+def send_message(message, history): 
+    formatted_history = format_history(history)
     chat_session = model.start_chat(
-        history=[]
+        history=formatted_history
     )
     response = chat_session.send_message(message)
     return response.text
@@ -52,8 +59,14 @@ def on_send():
         chat_history.insert(tk.END, user_message + "\n")
         chat_history.config(state=tk.DISABLED)
         user_input.delete(0, tk.END)
+   
+        chat_history_list.append({"role": "user", "content": user_message})
         
-        bot_response = send_message(user_message)
+        bot_response = send_message(user_message, chat_history_list)
+        
+
+        chat_history_list.append({"role": "model", "content": bot_response})
+        
         chat_history.config(state=tk.NORMAL)
         chat_history.insert(tk.END, "Bot: ", "bold")
         chat_history.config(state=tk.DISABLED)
@@ -88,7 +101,7 @@ def open_file():
                 code_display.config(state=tk.DISABLED)
                 
                 explanation_request = f"Explain this code in detail:\n{file_content}"
-                bot_response = send_message(explanation_request)
+                bot_response = send_message(explanation_request, chat_history_list)
            
                 chat_history.config(state=tk.NORMAL)
                 chat_history.insert(tk.END, "Code:\n", "bold")
