@@ -21,7 +21,7 @@ def configure_genai(api_key):
     return model
 
 
-api_key = "AIzaSyA6DZkB7w66xqcUXNCuYiM6f51rTOevOKc"
+api_key = "AIzaSyDUdCp1NK3zOcJmK-_AyEGP9IsEwbum8i8"
 model = configure_genai(api_key)
 
 chat_history_list = []
@@ -172,7 +172,7 @@ def on_scroll(event):
     code_display.yview_scroll(int(-1*(event.delta/120)), "units")
     line_numbers_display.yview_scroll(int(-1*(event.delta/120)), "units")
 
-ctk.set_appearance_mode("dark")
+ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("green")
 
 root = ctk.CTk()
